@@ -4,7 +4,7 @@ import "@fontsource/space-grotesk/700.css";
 import "./style.css";
 import { allocate, gallagher, METHOD_NAMES, type Method, type Bloc } from "./allocate";
 import { coalitionColor, partyColor } from "./colors";
-import { SYSTEM_INFOGRAPHIC } from "./infographics";
+import { setupAnim } from "./anim";
 
 const BASE = import.meta.env.BASE_URL;
 const app = document.getElementById("app")!;
@@ -120,7 +120,7 @@ function disproSvg(gF: number, gP: number, label: string) {
 function mount() {
   const sysCard = (m: Method, baseline: boolean) => `
     <${baseline ? "div" : "button"} class="syscard${!baseline && method === m ? " on" : ""}${baseline ? " baseline" : ""}"${baseline ? "" : ` data-m="${m}"`}>
-      <div class="ig-wrap">${SYSTEM_INFOGRAPHIC[m]()}</div>
+      <div class="ig-wrap" data-anim="${m}"></div>
       <div class="syshead"><span class="sysname">${esc(shortName(m))}</span>${info(m)}</div>
       <div class="sysone">${META[m].one}</div>
     </${baseline ? "div" : "button"}>`;
@@ -174,6 +174,8 @@ function mount() {
     thrval.textContent = `${threshold.toFixed(1)}%`;
     sync(); renderResults();
   });
+
+  document.querySelectorAll<HTMLElement>(".ig-wrap[data-anim]").forEach((el) => setupAnim(el, el.dataset.anim as Method));
 }
 
 // ---- the part that changes when you pick an election / system / threshold ----

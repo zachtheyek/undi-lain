@@ -46,10 +46,10 @@ The unit is each bloc = its coalition, or its party if unaligned.
 
 The allocation methods live in [`src/allocate.ts`](src/allocate.ts) and are
 **unit-tested** ([`src/allocate.test.ts`](src/allocate.test.ts)) against the
-canonical textbook worked examples — `npm test`. The same canonical example
-(A 100k · B 80k · C 30k · D 20k over 8 seats) drives the explainer infographics in
-[`src/infographics.ts`](src/infographics.ts), so what they show is the real
-algorithm, not a mock-up.
+canonical textbook worked examples — `npm test`. The animated per-system explainers
+in [`src/anim.ts`](src/anim.ts) play out the real algorithm on one shared four-bloc
+example (A 120 · B 80 · C 30 · D 20 over 8 seats), so what they show is how the
+method actually distributes seats, not a mock-up.
 
 ## Credit
 
