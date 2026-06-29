@@ -109,12 +109,11 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 .coalchips .cdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 
 /* bloc table: change is the centrepiece, numbers grouped to the right */
-/* name + vote share cluster left; a flexible gap (col 3) pushes the seats group right.
-   subgrid makes every row share the table's tracks so the columns line up. */
-.table { display: grid; grid-template-columns: auto auto 1fr auto; column-gap: 14px; margin: 6px 0 0; }
+/* name fills the left; vote share + the seats group sit on the right (vote nudged a little
+   left of the seats group). subgrid keeps the columns aligned across rows. */
+.table { display: grid; grid-template-columns: 1fr auto auto; column-gap: 24px; margin: 6px 0 0; }
 .trow { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .trow.thead { border-top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.seatsgrp, .seatschdr { grid-column: 4; }
 .seatsgrp { display: flex; align-items: baseline; justify-content: flex-end; gap: 7px; }
 .trow .nm { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
 .r { text-align: right; }
