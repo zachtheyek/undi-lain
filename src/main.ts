@@ -25,7 +25,7 @@ const META: Record<Method | "threshold" | "gallagher", { one: string; tip: strin
   "sainte-lague": { one: "mirrors votes honestly", tip: "Engineered to be the unbiased one — no thumb on the scale for big or small." },
   "largest-remainder": { one: "everyone keeps their share", tip: "Guarantees no party lands a whole seat off its exact entitlement." },
   threshold: { one: "bouncer at the door", tip: "A minimum vote bar that locks the smallest parties out before seats are shared, trading tidiness for fairness." },
-  gallagher: { one: "scores the mismatch", tip: "Not a system at all — the referee that grades how far seats drifted from votes." },
+  gallagher: { one: "scores the mismatch", tip: "Gallagher index — votes-to-seats fairness, hurt most by lopsided losers." },
 };
 
 const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
@@ -97,17 +97,22 @@ function disproSvg(gF: number, gP: number, label: string) {
   const w = 300, x0 = 16, x1 = w - 16, ty = 38;
   const dmax = Math.max(gF, gP, 4) * 1.12;
   const sx = (v: number) => x0 + (v / dmax) * (x1 - x0);
-  // pin each label to whichever edge its dot is nearer, so a near-zero value never clips
-  const prLeft = gP <= gF;
-  const prLab = `<text x="${prLeft ? x0 : x1}" y="${ty - 9}" text-anchor="${prLeft ? "start" : "end"}" class="dp-lab pr">${esc(label)} ${gP.toFixed(1)}</text>`;
-  const fLab = `<text x="${prLeft ? x1 : x0}" y="${ty - 9}" text-anchor="${prLeft ? "end" : "start"}" class="dp-lab fptp">FPTP ${gF.toFixed(1)}</text>`;
-  return `<svg viewBox="0 0 ${w} 60" class="dp" role="img" aria-label="disproportionality from FPTP to ${esc(label)}">
+  // grey "current system" (FPTP) label is pinned right; the accent "selected system"
+  // label drifts to follow its dot, but never crosses left of its home (x0) and always
+  // keeps a gap from the grey label on the right.
+  const prText = `${label} ${gP.toFixed(1)}`, fText = `FPTP ${gF.toFixed(1)}`;
+  const cw = 6.2, gap = 14;
+  const maxX = Math.max(x0, x1 - fText.length * cw - gap - prText.length * cw);
+  const prX = Math.min(Math.max(sx(gP) - (prText.length * cw) / 2, x0), maxX);
+  return `<svg viewBox="0 0 ${w} 60" class="dp" role="img" aria-label="fairness from FPTP to ${esc(label)}">
     <line x1="${x0}" y1="${ty}" x2="${x1}" y2="${ty}" class="dp-axis"/>
-    <text x="${x0}" y="${ty + 15}" class="dp-tick">0 · perfectly fair</text>
-    <text x="${x1}" y="${ty + 15}" text-anchor="end" class="dp-tick">more distorted →</text>
+    <text x="${x0}" y="${ty + 15}" class="dp-tick">0 = perfectly fair</text>
+    <text x="${x1}" y="${ty + 15}" text-anchor="end" class="dp-tick">more unfair →</text>
     <line x1="${sx(Math.min(gF, gP))}" y1="${ty}" x2="${sx(Math.max(gF, gP))}" y2="${ty}" class="dp-link"/>
-    <circle cx="${sx(gF)}" cy="${ty}" r="5" class="dp-fptp"/>${fLab}
-    <circle cx="${sx(gP)}" cy="${ty}" r="5.5" class="dp-pr"/>${prLab}
+    <circle cx="${sx(gF)}" cy="${ty}" r="5" class="dp-fptp"/>
+    <text x="${x1}" y="${ty - 9}" text-anchor="end" class="dp-lab fptp">${esc(fText)}</text>
+    <circle cx="${sx(gP)}" cy="${ty}" r="5.5" class="dp-pr"/>
+    <text x="${prX.toFixed(1)}" y="${ty - 9}" text-anchor="start" class="dp-lab pr">${esc(prText)}</text>
   </svg>`;
 }
 
@@ -118,7 +123,6 @@ function mount() {
       <div class="ig-wrap">${SYSTEM_INFOGRAPHIC[m]()}</div>
       <div class="syshead"><span class="sysname">${esc(shortName(m))}</span>${info(m)}</div>
       <div class="sysone">${META[m].one}</div>
-      ${baseline ? `<div class="systag">always shown · left chamber</div>` : ""}
     </${baseline ? "div" : "button"}>`;
 
   app.innerHTML = `
@@ -132,7 +136,7 @@ function mount() {
 
       <div>
         <div class="ctl-label">Electoral system</div>
-        <p class="ctl-help">The left chamber is always first-past-the-post — what actually happened. Pick a system to re-run the right chamber. Each panel shows how that system shares out 8 seats among the same four blocs.</p>
+        <p class="ctl-help">Malaysia currently uses first-past-the-post. Pick an alternative system and see what changes — each panel shows how it shares out 8 seats among the same four blocs.</p>
         <div class="systems" id="systems">${sysCard("fptp", true)}${PR_METHODS.map((m) => sysCard(m, false)).join("")}</div>
       </div>
 
@@ -206,20 +210,20 @@ function renderResults() {
   }).join("");
 
   const url = `${location.origin}${BASE}?e=${e.election}&m=${method}&t=${threshold}`;
-  const shareText = `${e.year}: ${esc(top)} won ${(fS / N * 100).toFixed(0)}% of seats on ${votePct.toFixed(0)}% of votes under FPTP. Under ${label} it'd be ${(pS / N * 100).toFixed(0)}%. Re-run any Malaysian election:`;
+  const shareText = `${e.year}: ${esc(top)} won ${(fS / N * 100).toFixed(0)}% of seats on ${votePct.toFixed(0)}% of votes under FPTP. Under ${label}, it'd be ${(pS / N * 100).toFixed(0)}%. Re-run any Malaysian election:`;
 
   document.getElementById("results")!.innerHTML = `
     <div class="headline">${headline}</div>
 
     <div class="arcs">
-      <div class="arc"><h3>Actual — First-past-the-post</h3>${majorityLine(fptp, order, N)}${arc(fptp, order, N)}</div>
-      <div class="arc"><h3>Under ${esc(label)}</h3>${majorityLine(pr, order, N)}${arc(pr, order, N)}</div>
+      <div class="arc"><h3>Actual: First-past-the-post</h3>${majorityLine(fptp, order, N)}${arc(fptp, order, N)}</div>
+      <div class="arc"><h3>Scenario: ${esc(label)}</h3>${majorityLine(pr, order, N)}${arc(pr, order, N)}</div>
     </div>
 
     <div class="dispro">
-      <div class="dp-head">Disproportionality ${info("gallagher")}<span class="dp-one">${META.gallagher.one}</span></div>
+      <div class="dp-head">Fairness ${info("gallagher")}</div>
       ${disproSvg(gF, gP, label)}
-      <div class="dp-foot"><b>${seatsChanged.toFixed(0)}</b> seats change hands vs first-past-the-post. Lower Gallagher = a closer match between votes and seats.</div>
+      <div class="dp-foot"><b>${seatsChanged.toFixed(0)}</b> seats change hands vs first-past-the-post.</div>
     </div>
 
     <div class="table">
@@ -232,7 +236,16 @@ function renderResults() {
       <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}" target="_blank" rel="noopener">𝕏 Share</a>
     </div>`;
 
-  document.getElementById("copy")!.onclick = async (ev) => { await navigator.clipboard.writeText(url); (ev.target as HTMLElement).textContent = "✓ Copied!"; };
+  document.getElementById("copy")!.onclick = async () => { try { await navigator.clipboard.writeText(url); } catch { /* clipboard unavailable (e.g. unfocused frame) */ } toast("Link copied"); };
+}
+
+function toast(msg: string) {
+  let t = document.getElementById("toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.innerHTML = `<span class="tick">✓</span> ${esc(msg)}`;
+  t.classList.add("show");
+  clearTimeout((t as any)._h);
+  (t as any)._h = setTimeout(() => t!.classList.remove("show"), 2400);
 }
 
 function sync() { history.replaceState({}, "", `${BASE}?e=${ELECTIONS[ei].election}&m=${method}&t=${threshold}`); }
