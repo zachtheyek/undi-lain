@@ -241,7 +241,7 @@ function renderResults() {
     </div>`;
   }).join("");
 
-  const url = `${location.origin}${BASE}?e=${e.election}&m=${method}&t=${threshold}`;
+  const url = `${location.origin}${scenarioPath()}`;
   const shareText = `${e.year}: ${esc(top)} won ${(fS / N * 100).toFixed(0)}% of seats on ${votePct.toFixed(0)}% of votes under FPTP. Under ${label}, it'd be ${(pS / N * 100).toFixed(0)}%. Re-run any Malaysian election:`;
 
   document.getElementById("results")!.innerHTML = `
@@ -283,15 +283,26 @@ function toast(msg: string) {
   (t as any)._h = setTimeout(() => t!.classList.remove("show"), 2400);
 }
 
-function sync() { history.replaceState({}, "", `${BASE}?e=${ELECTIONS[ei].election}&m=${method}&t=${threshold}`); }
+// path-based scenario URL: /<repo>/s/<election>/<system>/ (+ ?t= when a threshold is set)
+function scenarioPath() {
+  const base = `${BASE}s/${ELECTIONS[ei].election}/${method}/`;
+  return threshold > 0 ? `${base}?t=${threshold.toFixed(1).replace(/\.0$/, "")}` : base;
+}
+function sync() { history.replaceState({}, "", scenarioPath()); }
 
 (async () => {
   app.innerHTML = `<div class="loading">Loading…</div>`;
   ELECTIONS = (await fetch(`${BASE}data/elections.json`).then((r) => r.json())).elections;
   ei = ELECTIONS.length - 1;
-  const p = new URLSearchParams(location.search);
-  const e = p.get("e"); if (e) { const i = ELECTIONS.findIndex((x) => x.election === e); if (i >= 0) ei = i; }
-  const m = p.get("m") as Method; if (m && PR_METHODS.includes(m)) method = m;
+  // preferred: /s/<election>/<system>/ path route (prerendered with its own OG card)
+  const sm = location.pathname.replace(BASE, "").replace(/^\/+/, "").match(/^s\/(GE-\d+)\/([a-z-]+)\/?$/);
+  if (sm) {
+    const i = ELECTIONS.findIndex((x) => x.election === sm[1]); if (i >= 0) ei = i;
+    if (PR_METHODS.includes(sm[2] as Method)) method = sm[2] as Method;
+  }
+  const p = new URLSearchParams(location.search);     // legacy ?e=&m= still works
+  const e = p.get("e"); if (!sm && e) { const i = ELECTIONS.findIndex((x) => x.election === e); if (i >= 0) ei = i; }
+  const m = p.get("m") as Method; if (!sm && m && PR_METHODS.includes(m)) method = m;
   const t = p.get("t"); if (t != null && !isNaN(+t)) threshold = Math.max(0, Math.min(10, +t));
   mount();
   renderResults();

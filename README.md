@@ -20,22 +20,26 @@ optional electoral threshold, and see exactly how the chamber changes.
 
 ## What's on the page
 
-- **Two parliament arcs** side by side: the actual first-past-the-post result on
-  the left, the chosen PR system on the right.
-- **A single disproportionality readout** — the Gallagher index for FPTP and for
-  the chosen system on one scale, so you see the gap close (lower = fairer), plus
-  how many seats change hands.
-- **A bloc table** where the *change* is the headline: each bloc's logo, its vote
-  share, and the seat swing as `+19 (30 → 49)` (green for gains, red for losses).
-- **Explainer infographics for every system.** The biggest barrier here is jargon:
-  most readers don't already know what D'Hondt or the Gallagher index *are*. So each
-  system shows a small, self-contained graphic of how it shares out the same eight
-  seats among the same four blocs, a one-line gist (e.g. *"rewards the strong"*), and
-  an ⓘ card with the deeper explanation. The D'Hondt and Sainte-Laguë panels are
-  deliberately drawn as the same grid with different divisors, so the only difference
-  between them is visible at a glance. First-past-the-post is shown as the fixed
-  baseline (it's the actual result on every left-hand chamber), so it isn't a
+- **A Results card** with two parliament chambers side by side — the actual
+  first-past-the-post result and the chosen PR scenario — plus the headline, the
+  "N seats change hands" count, and a bloc table where the *change* is the centrepiece
+  (logo, vote share, and the seat swing as a coloured delta beside `(30 → 49)`).
+- **A Fairness readout** — the Gallagher index for FPTP and the chosen system on one
+  scale, so you watch the gap close (lower = fairer).
+- **Animated explainers for every system.** The biggest barrier here is jargon: most
+  readers don't already know what D'Hondt or the Gallagher index *are*. So each system
+  plays a short, hover-to-replay animation of how it shares out the same eight seats
+  among the same four blocs — bars growing, seats handed out one by one, the winner's
+  bar cut (Sainte-Laguë cuts deeper than D'Hondt), ending on who forms the government —
+  with a one-line gist (e.g. *"rewards the strong"*) and an ⓘ card for the detail.
+  First-past-the-post is the fixed baseline (it's the actual result), so it isn't a
   selectable option.
+- **A coalition builder.** When a chamber is hung, tap blocs to assemble a government;
+  the selected seats stay lit, the rest mute, and the line flips to "… have a majority"
+  once you cross it.
+- **Shareable scenarios.** Every election×system has a clean URL
+  (`/s/<election>/<system>/`) prerendered with its own before/after seat-map OG card,
+  so a shared link shows the distortion, not a generic image.
 
 ## How the re-allocation works
 
