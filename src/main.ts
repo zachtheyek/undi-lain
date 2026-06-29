@@ -77,19 +77,48 @@ function arc(seatsMap: Map<string, number>, order: string[], N: number) {
   const { pts, dot, cx, cy } = arcPositions(N);
   const seq: string[] = [];
   for (const b of order) for (let i = 0; i < (seatsMap.get(b) ?? 0); i++) seq.push(b);
-  const circles = pts.map((p, i) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dot.toFixed(1)}" fill="${blocColor(seq[i] ?? "Others")}"/>`).join("");
+  const circles = pts.map((p, i) => { const b = seq[i] ?? "Others"; return `<circle class="seat" data-bloc="${esc(b)}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dot.toFixed(1)}" fill="${blocColor(b)}"/>`; }).join("");
   return `<svg viewBox="0 0 300 168" role="img" aria-label="parliament seats">
     <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="13" font-weight="700" fill="#eef1f6">${N}</text>
     <text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="8.5" fill="#8a93a4">seats</text>
     ${circles}</svg>`;
 }
 
-function majorityLine(seatsMap: Map<string, number>, order: string[], N: number) {
+const arcCard = (id: string, heading: string, seatsMap: Map<string, number>, order: string[], N: number) =>
+  `<div class="arc" data-arc="${id}"><h3>${heading}</h3><div class="maj"></div>${arc(seatsMap, order, N)}<div class="coalition"></div></div>`;
+
+// Fills the majority line and — when the chamber is hung — a clickable coalition builder.
+// Selecting blocs keeps their seats lit and mutes the rest; once the selection crosses the
+// majority line the text flips to "… have a majority".
+function setupArc(card: HTMLElement, seatsMap: Map<string, number>, order: string[], N: number) {
   const maj = Math.floor(N / 2) + 1;
-  const top = order[0];
-  const topSeats = seatsMap.get(top) ?? 0;
-  const has = topSeats >= maj;
-  return `<div class="maj">${has ? `${esc(top)} <b style="color:#4ade80">has a majority</b> (${topSeats}/${maj})` : `<b style="color:#f87171">hung</b> — top bloc ${esc(top)} ${topSeats}/${maj} needed`}</div>`;
+  const top = order[0], topSeats = seatsMap.get(top) ?? 0;
+  const majEl = card.querySelector<HTMLElement>(".maj")!;
+  const coalEl = card.querySelector<HTMLElement>(".coalition")!;
+  const seats = [...card.querySelectorAll<SVGCircleElement>(".seat")];
+  if (topSeats >= maj) {
+    majEl.innerHTML = `<b style="color:var(--up)">${esc(top)} has a majority</b> (${topSeats}/${maj})`;
+    return;
+  }
+  const blocs = order.filter((b) => (seatsMap.get(b) ?? 0) > 0);
+  const selected = new Set<string>();
+  const sumSel = () => [...selected].reduce((s, b) => s + (seatsMap.get(b) ?? 0), 0);
+  const names = () => [...selected].sort((a, b) => (seatsMap.get(b) ?? 0) - (seatsMap.get(a) ?? 0)).map(esc).join(" + ");
+  const update = () => {
+    const sum = sumSel(), any = selected.size > 0;
+    if (sum >= maj) majEl.innerHTML = `<b style="color:var(--up)">${names()} have a majority</b> (${sum}/${maj})`;
+    else majEl.innerHTML = `<b class="hung">hung parliament, nobody has a majority</b><span class="majsub">${any ? `selected coalition: ${names()} (${sum}/${maj})` : `top bloc: ${esc(top)} (${topSeats}/${maj})`}</span>`;
+    seats.forEach((c) => (c.style.opacity = !any || selected.has(c.getAttribute("data-bloc")!) ? "1" : ".16"));
+    coalEl.querySelectorAll("button").forEach((b) => b.classList.toggle("on", selected.has((b as HTMLElement).dataset.b!)));
+  };
+  coalEl.innerHTML = `<div class="coalhint">tap blocs to form a government</div><div class="chips coalchips">` +
+    blocs.map((b) => `<button data-b="${esc(b)}"><span class="cdot" style="background:${blocColor(b)}"></span>${esc(b)} ${seatsMap.get(b) ?? 0}</button>`).join("") + `</div>`;
+  coalEl.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    const k = (b as HTMLElement).dataset.b!;
+    selected.has(k) ? selected.delete(k) : selected.add(k);
+    update();
+  }));
+  update();
 }
 
 // ---- single disproportionality readout (FPTP vs the chosen PR system) ----
@@ -206,8 +235,9 @@ function renderResults() {
     const delta = dd > 0 ? `+${dd}` : dd < 0 ? `${dd}` : "0";
     return `<div class="trow">
       <div class="nm">${blocLogo(bb)}<span>${esc(b)}</span></div>
-      <div class="vshare">${(bb.votes / e.total_votes * 100).toFixed(1)}%</div>
-      <div class="chg"><span class="d ${cls}">${delta}</span><span class="ctx">(${f} → ${p})</span></div>
+      <div class="vshare r">${(bb.votes / e.total_votes * 100).toFixed(1)}%</div>
+      <div class="d r ${cls}">${delta}</div>
+      <div class="ctx r">(${f} → ${p})</div>
     </div>`;
   }).join("");
 
@@ -215,22 +245,22 @@ function renderResults() {
   const shareText = `${e.year}: ${esc(top)} won ${(fS / N * 100).toFixed(0)}% of seats on ${votePct.toFixed(0)}% of votes under FPTP. Under ${label}, it'd be ${(pS / N * 100).toFixed(0)}%. Re-run any Malaysian election:`;
 
   document.getElementById("results")!.innerHTML = `
-    <div class="headline">${headline}</div>
-
-    <div class="arcs">
-      <div class="arc"><h3>Actual: First-past-the-post</h3>${majorityLine(fptp, order, N)}${arc(fptp, order, N)}</div>
-      <div class="arc"><h3>Scenario: ${esc(label)}</h3>${majorityLine(pr, order, N)}${arc(pr, order, N)}</div>
-    </div>
-
     <div class="dispro">
       <div class="dp-head">Fairness ${info("gallagher")}</div>
       ${disproSvg(gF, gP, label)}
-      <div class="dp-foot"><b>${seatsChanged.toFixed(0)}</b> seats change hands vs first-past-the-post.</div>
     </div>
 
-    <div class="table">
-      <div class="trow thead"><div>Bloc</div><div class="vshare">Vote share</div><div class="chg">Seats vs FPTP</div></div>
-      ${rows}
+    <div class="results">
+      <div class="headline">${headline}</div>
+      <div class="arcs">
+        ${arcCard("fptp", "Actual: First-past-the-post", fptp, order, N)}
+        ${arcCard("pr", "Scenario: " + esc(label), pr, order, N)}
+      </div>
+      <div class="rc-stat"><span class="big">${seatsChanged.toFixed(0)}</span> seats change hands vs first-past-the-post</div>
+      <div class="table">
+        <div class="trow thead"><div>Bloc</div><div class="r">Vote share</div><div class="r seatschdr">Seats Changed</div></div>
+        ${rows}
+      </div>
     </div>
 
     <div class="sharebar">
@@ -238,6 +268,9 @@ function renderResults() {
       <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}" target="_blank" rel="noopener">𝕏 Share</a>
     </div>`;
 
+  const resultsEl = document.getElementById("results")!;
+  setupArc(resultsEl.querySelector<HTMLElement>('[data-arc="fptp"]')!, fptp, order, N);
+  setupArc(resultsEl.querySelector<HTMLElement>('[data-arc="pr"]')!, pr, order, N);
   document.getElementById("copy")!.onclick = async () => { try { await navigator.clipboard.writeText(url); } catch { /* clipboard unavailable (e.g. unfocused frame) */ } toast("Link copied"); };
 }
 
