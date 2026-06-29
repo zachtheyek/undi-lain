@@ -15,16 +15,17 @@ import type { Method } from "./allocate";
 
 const COL = ["#3b82f6", "#f59e0b", "#ef4444", "#22c55e"]; // A blue · B orange · C red · D green
 const KEY = ["A", "B", "C", "D"];
-const VOTES = [120, 80, 30, 20];
+const VOTES = [80, 120, 30, 20];
+const MAXV = Math.max(...VOTES);
 const SEATS = 8;
-const WIN = 0; // A leads in seats under every system
+const WIN = 1; // B leads in seats under every system
 
 // the order each circle (seat) is filled, by party index
 const ORDER: Record<Method, number[]> = {
-  fptp: [0, 0, 1, 0, 1, 0, 2, 0],            // 8 local winners → A5 B2 C1 D0
-  dhondt: [0, 1, 0, 0, 1, 0, 2, 1],           // A B A A B A C B → A4 B3 C1 D0
-  "sainte-lague": [0, 1, 0, 2, 1, 0, 3, 0],   // A B A C B A D A → A4 B2 C1 D1
-  "largest-remainder": [0, 0, 0, 1, 1, 2, 0, 3], // 5 whole (A3 B2) then remainders C,A,D
+  fptp: [1, 1, 0, 1, 0, 1, 2, 1],            // 8 local winners → B5 A2 C1 D0
+  dhondt: [1, 0, 1, 0, 1, 1, 2, 0],           // B A B A B B C A → B4 A3 C1 D0
+  "sainte-lague": [1, 0, 1, 2, 0, 1, 3, 1],   // B A B C A B D B → B4 A2 C1 D1
+  "largest-remainder": [0, 0, 1, 1, 1, 2, 1, 3], // wholes (A2 B3) then remainders C,B,D
 };
 
 // geometry (viewBox 240 × 150)
@@ -134,7 +135,7 @@ async function finale(s: Stage, tok: Tok, ord: number[]) {
 
 async function runFPTP(s: Stage, tok: Tok) {
   const ord = ORDER.fptp;
-  s.seatlab.textContent = "8 local seats";
+  s.seatlab.textContent = "8 seats";
   await phase(s, tok, "Each seat goes to its local winner", async () => {
     for (let i = 0; i < SEATS; i++) {
       if (tok.c) throw 0;
@@ -153,14 +154,14 @@ async function runFPTP(s: Stage, tok: Tok) {
   await finale(s, tok, ord);
 }
 
-async function runHA(s: Stage, tok: Tok, divisor: (held: number) => number, ord: number[]) {
+async function runHA(s: Stage, tok: Tok, divisor: (held: number) => number, ord: number[], penalty: string) {
   s.seatlab.textContent = "8 seats";
   await phase(s, tok, "Votes come in", async () => {
-    s.bars.forEach((_, i) => s.setBar(i, s.h(VOTES[i], VOTES[0])));
+    s.bars.forEach((_, i) => s.setBar(i, s.h(VOTES[i], MAXV)));
     s.allBars("1"); await sleep(640);
   });
   const held = [0, 0, 0, 0];
-  await phase(s, tok, "Each seat → the biggest average, then cut the winner", async () => {
+  await phase(s, tok, `Each seat → the winner, but winners get penalized (${penalty}) for each seat they win`, async () => {
     for (let i = 0; i < SEATS; i++) {
       if (tok.c) throw 0;
       const w = ord[i];
@@ -170,9 +171,9 @@ async function runHA(s: Stage, tok: Tok, divisor: (held: number) => number, ord:
       await s.fly(w, i, COL[w]); if (tok.c) throw 0;
       held[w]++;
       const div = divisor(held[w]), next = VOTES[w] / div;
-      s.showNum(w, `÷${div}`, COL[w]);                  // the division applied to the winner
+      s.showNum(w, `÷${div}`, COL[w]);                  // the penalty applied to the winner
       await sleep(300); if (tok.c) throw 0;
-      s.setBar(w, s.h(next, VOTES[0]));
+      s.setBar(w, s.h(next, MAXV));
       s.showNum(w, `${Math.round(next)}`, COL[w]);
       await sleep(420); if (tok.c) throw 0;
       s.allBars("1"); s.hideNum();
@@ -213,14 +214,17 @@ async function runHare(s: Stage, tok: Tok) {
     }
   });
   await phase(s, tok, "Leftover seats → the biggest remainders", async () => {
+    // the stubs left over are all under one quota; pick the highest, keep it lit, repeat
+    s.allBars(".35");
     for (; seat < SEATS; seat++) {
       if (tok.c) throw 0;
       const w = ord[seat];
-      s.focusBar(w);
+      s.bars[w].style.opacity = "1";
       s.showNum(w, (q[w] - whole[w]).toFixed(2), COL[w]); // the remainder
-      await sleep(420); if (tok.c) throw 0;
+      await sleep(450); if (tok.c) throw 0;
       await s.fly(w, seat, COL[w]); if (tok.c) throw 0;
-      s.allBars("1"); s.hideNum();
+      s.hideNum();
+      await sleep(120); if (tok.c) throw 0;
     }
   });
   await finale(s, tok, ord);
@@ -228,26 +232,37 @@ async function runHare(s: Stage, tok: Tok) {
 
 function runOne(s: Stage, method: Method, tok: Tok): Promise<void> {
   if (method === "fptp") return runFPTP(s, tok);
-  if (method === "dhondt") return runHA(s, tok, (h) => h + 1, ORDER.dhondt);
-  if (method === "sainte-lague") return runHA(s, tok, (h) => 2 * h + 1, ORDER["sainte-lague"]);
+  if (method === "dhondt") return runHA(s, tok, (h) => h + 1, ORDER.dhondt, "a bit");
+  if (method === "sainte-lague") return runHA(s, tok, (h) => 2 * h + 1, ORDER["sainte-lague"], "a lot");
   return runHare(s, tok);
 }
 
-// ---- mobile coordinator: the card nearest the screen centre plays, the rest pause ----
-type Ctl = { wrap: HTMLElement; start: () => void; stop: () => void };
+// A card plays when it's the SELECTED system (pinned, keeps looping), when it's hovered
+// (desktop), or when it's nearest the screen centre (touch). Pinned + one of the others = at
+// most two running at a time.
+type Ctl = { method: Method; wrap: HTMLElement; hovering: boolean; start: () => void; stop: () => void };
 const REG: Ctl[] = [];
+let pinned: Method | null = null;
+let centered: HTMLElement | null = null;
 let coordWired = false;
 const TOUCH = !window.matchMedia?.("(hover: hover)").matches;
+
+function refresh() {
+  REG.forEach((c) => ((c.method === pinned || c.hovering || (TOUCH && c.wrap === centered)) ? c.start() : c.stop()));
+}
+export function setSelectedAnim(method: Method) { pinned = method; refresh(); }
+
 function coordinate() {
   const mid = window.innerHeight / 2;
-  let best = -1, bd = Infinity;
-  REG.forEach((c, i) => {
+  let best: HTMLElement | null = null, bd = Infinity;
+  REG.forEach((c) => {
     const r = c.wrap.getBoundingClientRect();
     if (r.bottom < 40 || r.top > window.innerHeight - 40) return;
     const d = Math.abs(r.top + r.height / 2 - mid);
-    if (d < bd) { bd = d; best = i; }
+    if (d < bd) { bd = d; best = c.wrap; }
   });
-  REG.forEach((c, i) => (i === best ? c.start() : c.stop()));
+  centered = best;
+  refresh();
 }
 function wireCoordinator() {
   if (coordWired) return;
@@ -283,7 +298,12 @@ export function setupAnim(wrap: HTMLElement, method: Method) {
     })();
   };
   const stop = () => { if (tok) tok.c = true; };
+  const ctl: Ctl = { method, wrap, hovering: false, start, stop };
+  REG.push(ctl);
 
-  if (TOUCH) { REG.push({ wrap, start, stop }); wireCoordinator(); }
-  else { wrap.addEventListener("mouseenter", start); wrap.addEventListener("mouseleave", stop); }
+  if (TOUCH) wireCoordinator();
+  else {
+    wrap.addEventListener("mouseenter", () => { ctl.hovering = true; refresh(); });
+    wrap.addEventListener("mouseleave", () => { ctl.hovering = false; refresh(); });
+  }
 }

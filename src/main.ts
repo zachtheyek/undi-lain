@@ -4,7 +4,7 @@ import "@fontsource/space-grotesk/700.css";
 import "./style.css";
 import { allocate, gallagher, METHOD_NAMES, type Method, type Bloc } from "./allocate";
 import { coalitionColor, partyColor } from "./colors";
-import { setupAnim } from "./anim";
+import { setupAnim, setSelectedAnim } from "./anim";
 
 const BASE = import.meta.env.BASE_URL;
 const app = document.getElementById("app")!;
@@ -20,11 +20,11 @@ const PR_METHODS: Method[] = ["dhondt", "sainte-lague", "largest-remainder"];
 
 // One-liner (always visible) + the deeper explanation (revealed on the ⓘ card).
 const META: Record<Method | "threshold" | "gallagher", { one: string; tip: string }> = {
-  fptp: { one: "local winner takes all", tip: "Each place picks one champion; the chamber is just the sum of local fights." },
+  fptp: { one: "local winner takes all", tip: "Each place picks one champion; parliament is just the sum of local champions." },
   dhondt: { one: "rewards the strong", tip: "Its built-in tilt toward big blocs is a feature, used to nudge toward governable majorities." },
-  "sainte-lague": { one: "mirrors votes honestly", tip: "Engineered to be the unbiased one — no thumb on the scale for big or small." },
-  "largest-remainder": { one: "everyone keeps their share", tip: "Guarantees no party lands a whole seat off its exact entitlement." },
-  threshold: { one: "bouncer at the door", tip: "A minimum vote bar that locks the smallest parties out before seats are shared, trading tidiness for fairness." },
+  "sainte-lague": { one: "protects the weak", tip: "Its even hand lets small blocs win their fair seat at the table — no thumb on the scale for the big guys." },
+  "largest-remainder": { one: "everyone keeps their share", tip: "Seat count = exact share, rounded up or down — never further." },
+  threshold: { one: "", tip: "A minimum vote threshold that locks the smallest parties out before seats are shared, trading tidiness for fairness." },
   gallagher: { one: "scores the mismatch", tip: "Gallagher index — votes-to-seats fairness, hurt most by lopsided losers." },
 };
 
@@ -165,12 +165,12 @@ function mount() {
 
       <div>
         <div class="ctl-label">Electoral system</div>
-        <p class="ctl-help">Malaysia currently uses first-past-the-post. Pick an alternative system and see what changes — each panel shows how it shares out 8 seats among the same four blocs.</p>
+        <p class="ctl-help">Malaysia currently uses first-past-the-post. Pick an alternative system and see what changes — each panel shows how 8 seats are split between 4 blocs with the same votes.</p>
         <div class="systems" id="systems">${sysCard("fptp", true)}${PR_METHODS.map((m) => sysCard(m, false)).join("")}</div>
       </div>
 
       <div>
-        <div class="ctl-label">Electoral threshold ${info("threshold")}<span class="ctl-one">${META.threshold.one}</span></div>
+        <div class="ctl-label">Electoral threshold ${info("threshold")}</div>
         <div class="thresh"><input id="thr" type="range" min="0" max="10" step="0.1" value="${threshold}"><span class="val" id="thrval">${threshold.toFixed(1)}%</span></div>
       </div>
     </div>
@@ -194,6 +194,7 @@ function mount() {
       method = (b as HTMLElement).dataset.m as Method;
       document.querySelectorAll("#systems .syscard").forEach((x) => x.classList.remove("on"));
       b.classList.add("on");
+      setSelectedAnim(method);
       sync(); renderResults();
     }));
   const thr = document.getElementById("thr") as HTMLInputElement;
@@ -205,6 +206,7 @@ function mount() {
   });
 
   document.querySelectorAll<HTMLElement>(".ig-wrap[data-anim]").forEach((el) => setupAnim(el, el.dataset.anim as Method));
+  setSelectedAnim(method); // the selected system keeps playing
 }
 
 // ---- the part that changes when you pick an election / system / threshold ----

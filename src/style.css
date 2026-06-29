@@ -25,7 +25,6 @@ a { color: var(--accent); } button, select { font: inherit; cursor: pointer; bor
 .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin: 26px 0 22px; display: flex; flex-direction: column; gap: 18px; }
 .ctl-label { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 .ctl-help { font-size: 13px; color: var(--muted); line-height: 1.5; margin: -2px 0 10px; }
-.ctl-one { text-transform: none; letter-spacing: 0; color: var(--accent); font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
 .chips button.on { background: var(--accent); color: #1a1500; border-color: var(--accent); }
@@ -87,7 +86,7 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 .results { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 16px; margin: 16px 0 22px; }
 .results .headline { margin: 2px 0 16px; }
 .rc-stat { margin: 18px 0 4px; font-size: 14px; color: var(--muted); text-align: center; }
-.rc-stat .big { font-size: 26px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; margin-right: 5px; }
+.rc-stat .big { font-size: 26px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 5px; }
 
 .arcs { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 680px) { .arcs { grid-template-columns: 1fr 1fr; } }
@@ -122,7 +121,7 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 .vshare { font-size: 14px; color: var(--muted); }
 .trow .d { font-size: 18px; font-weight: 700; min-width: 30px; }
 .trow .d.up { color: var(--up); } .trow .d.down { color: var(--down); } .trow .d.flat { color: var(--muted); }
-.trow .ctx { font-size: 12px; color: var(--muted); min-width: 62px; }
+.trow .ctx { font-size: 12px; color: var(--muted); min-width: 62px; margin-left: -8px; }
 
 .sharebar { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 20px; }
 .sharebar button, .sharebar a { padding: 11px 16px; border-radius: 11px; font-weight: 700; font-size: 14px; border: 1px solid var(--line); text-decoration: none; }
