@@ -2,14 +2,12 @@
 // Each card shares the same stage — four party bars (blue/orange/red/green) and eight
 // blank seat-circles — and plays a short, looping video of how that system fills the
 // chamber. Default state is the FIRST frame (paused). On desktop, hovering a card plays
-// it on a loop and leaving resets to the first frame; on touch, the card nearest the
-// centre of the screen plays and the rest stay paused. prefers-reduced-motion stays on
-// the first frame.
+// it on a loop and leaving resets; on touch, the card nearest the screen centre plays.
+// The SELECTED system also keeps playing, so at most two run at once. Reduced motion
+// stays on the first frame.
 //
-// Toy election (the canonical highest-averages example): A 120 · B 80 · C 30 · D 20,
-// 8 seats. FPTP A5 B2 C1 D0 · D'Hondt A4 B3 C1 D0 · Sainte-Laguë A4 B2 C1 D1 ·
-// Hare A4 B2 C1 D1. A leads under every system (so it always "forms government"), and
-// D'Hondt vs Sainte-Laguë differ — Sainte-Laguë cuts a winner's bar deeper.
+// Toy election: A 80 · B 120 · C 30 · D 20, 8 seats. B leads under every system, and
+// D'Hondt vs Sainte-Laguë differ. Every division shown is exact (votes ÷ divisor).
 
 import type { Method } from "./allocate";
 
@@ -29,12 +27,12 @@ const ORDER: Record<Method, number[]> = {
 };
 
 // geometry (viewBox 240 × 150)
-const BY = 112, MAXH = 74, BX = [14, 36, 58, 80], BW = 16;
+const BY = 112, MAXH = 66, BX = [14, 36, 58, 80], BW = 16;
 const CX = [138, 167, 196, 223], CY = [58, 92], CR = 11;
 const cx = (i: number) => CX[i % 4], cy = (i: number) => CY[i < 4 ? 0 : 1];
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const numStr = (v: number, d: number) => (d === 1 ? `${v}` : `${v}÷${d}`); // exact, never ÷1
 
-// timing: every titled phase stays on screen for at least MIN_TEXT so it can be read.
 const MIN_TEXT = 1300, GAP = 180, PAUSE = 1100;
 type Tok = { c: boolean };
 
@@ -42,11 +40,11 @@ function svgSkeleton(): string {
   const bars = BX.map((x, i) => `<rect class="ab" data-i="${i}" x="${x}" y="${BY - MAXH}" width="${BW}" height="${MAXH}" rx="2" fill="${COL[i]}" style="transform:scaleY(0)"/>`).join("");
   const blabels = BX.map((x, i) => `<text class="ablab" x="${x + BW / 2}" y="124" text-anchor="middle">${KEY[i]}</text>`).join("");
   const circles = ORDER.fptp.map((_, i) => `<circle class="ac" data-i="${i}" cx="${cx(i)}" cy="${cy(i)}" r="${CR}" fill="none" stroke="#3a4254" stroke-width="1.6"/>`).join("");
+  const nums = BX.map((x, i) => `<text class="abnum" data-i="${i}" x="${x + BW / 2}" opacity="0"></text>`).join("");
   return `<svg viewBox="0 0 240 150" class="ig" role="img" aria-label="how seats are allocated">
-    <text class="astat" x="120" y="11" text-anchor="middle"></text>
-    <text class="aseatlab" x="180" y="34" text-anchor="middle">8 seats</text>
-    ${bars}${blabels}${circles}
-    <text class="abnum" opacity="0"></text>
+    <text class="astat" text-anchor="middle"><tspan class="l1" x="120" y="9"></tspan><tspan class="l2" x="120" y="19.5"></tspan></text>
+    <text class="aseatlab" x="180" y="36" text-anchor="middle">8 seats</text>
+    ${bars}${blabels}${circles}${nums}
     <g class="apm" opacity="0"><text class="apmt" x="0" y="0" text-anchor="middle">PM</text></g>
     <g class="adot" opacity="0"><circle r="5.5"/></g>
   </svg>`;
@@ -57,9 +55,9 @@ function makeStage(wrap: HTMLElement) {
   const svg = wrap.querySelector("svg")!;
   const bars = [...svg.querySelectorAll<SVGRectElement>(".ab")];
   const circles = [...svg.querySelectorAll<SVGCircleElement>(".ac")];
-  const stat = svg.querySelector<SVGTextElement>(".astat")!;
+  const nums = [...svg.querySelectorAll<SVGTextElement>(".abnum")];
+  const l1 = svg.querySelector<SVGTSpanElement>(".l1")!, l2 = svg.querySelector<SVGTSpanElement>(".l2")!;
   const seatlab = svg.querySelector<SVGTextElement>(".aseatlab")!;
-  const num = svg.querySelector<SVGTextElement>(".abnum")!;
   const dot = svg.querySelector<SVGGElement>(".adot")!;
   const dotc = dot.querySelector("circle")!;
   const pm = svg.querySelector<SVGGElement>(".apm")!;
@@ -72,9 +70,9 @@ function makeStage(wrap: HTMLElement) {
   const allBars = (o: string) => bars.forEach((b) => (b.style.opacity = o));
   const fillCircle = (i: number, c: string) => { circles[i].setAttribute("fill", c); circles[i].setAttribute("stroke", c); };
   const blankCircle = (i: number) => { const c = circles[i]; c.setAttribute("fill", "none"); c.setAttribute("stroke", "#3a4254"); c.style.opacity = "1"; c.style.transform = ""; };
-  const status = (s: string) => (stat.textContent = s);
-  const showNum = (i: number, text: string, color: string) => { num.setAttribute("x", `${BX[i] + BW / 2}`); num.setAttribute("y", `${BY - barH[i] - 7}`); num.setAttribute("fill", color); num.textContent = text; num.setAttribute("opacity", "1"); };
-  const hideNum = () => num.setAttribute("opacity", "0");
+  const status = (s: string) => { const [a, b = ""] = s.split("\n"); l1.textContent = a; l2.textContent = b; };
+  const showNum = (i: number, text: string, color: string, op = "1") => { nums[i].setAttribute("x", `${BX[i] + BW / 2}`); nums[i].setAttribute("y", `${BY - barH[i] - 7}`); nums[i].setAttribute("fill", color); nums[i].textContent = text; nums[i].setAttribute("opacity", op); };
+  const hideNum = (i?: number) => (i == null ? nums.forEach((n) => n.setAttribute("opacity", "0")) : nums[i].setAttribute("opacity", "0"));
 
   async function fly(barI: number, seatI: number, c: string, dur = 360) {
     const fromX = BX[barI] + BW / 2, fromY = BY - barH[barI];
@@ -92,7 +90,6 @@ function makeStage(wrap: HTMLElement) {
     setTimeout(() => circles[seatI].classList.remove("pop"), 320);
   }
 
-  // first frame: votes not yet in, no seats yet — the paused default
   function firstFrame() {
     bars.forEach((_, i) => setBar(i, 0));
     allBars("1");
@@ -105,7 +102,6 @@ function makeStage(wrap: HTMLElement) {
 }
 type Stage = ReturnType<typeof makeStage>;
 
-// run `work`, then hold its title for the rest of MIN_TEXT (so it can be read), then a beat
 async function phase(s: Stage, tok: Tok, title: string, work: () => Promise<void>) {
   if (tok.c) throw 0;
   s.status(title);
@@ -119,7 +115,7 @@ async function phase(s: Stage, tok: Tok, title: string, work: () => Promise<void
 }
 
 async function finale(s: Stage, tok: Tok, ord: number[]) {
-  await phase(s, tok, `${KEY[WIN]} wins the most seats → forms government`, async () => {
+  await phase(s, tok, `${KEY[WIN]} wins the most seats\n→ forms the government`, async () => {
     s.hideNum();
     s.circles.forEach((c, i) => (c.style.opacity = ord[i] === WIN ? "1" : ".28"));
     s.allBars(".2");
@@ -135,7 +131,6 @@ async function finale(s: Stage, tok: Tok, ord: number[]) {
 
 async function runFPTP(s: Stage, tok: Tok) {
   const ord = ORDER.fptp;
-  s.seatlab.textContent = "8 seats";
   await phase(s, tok, "Each seat goes to its local winner", async () => {
     for (let i = 0; i < SEATS; i++) {
       if (tok.c) throw 0;
@@ -154,28 +149,28 @@ async function runFPTP(s: Stage, tok: Tok) {
   await finale(s, tok, ord);
 }
 
+// highest-averages: each seat to the biggest quotient (votes ÷ divisor); winning bumps a
+// party's divisor (D'Hondt +1 → "a bit", Sainte-Laguë +2 → "a lot"). Every shown value is
+// exactly votes ÷ divisor, so the arithmetic is sound.
 async function runHA(s: Stage, tok: Tok, divisor: (held: number) => number, ord: number[], penalty: string) {
-  s.seatlab.textContent = "8 seats";
   await phase(s, tok, "Votes come in", async () => {
     s.bars.forEach((_, i) => s.setBar(i, s.h(VOTES[i], MAXV)));
     s.allBars("1"); await sleep(640);
   });
   const held = [0, 0, 0, 0];
-  await phase(s, tok, `Each seat → the winner, but winners get penalized (${penalty}) for each seat they win`, async () => {
+  await phase(s, tok, `Each seat → the winner\nwinners get penalized (${penalty}) per seat`, async () => {
     for (let i = 0; i < SEATS; i++) {
       if (tok.c) throw 0;
-      const w = ord[i];
+      const w = ord[i], dNow = divisor(held[w]);
       s.focusBar(w);
-      s.showNum(w, `${Math.round(VOTES[w] / divisor(held[w]))}`, COL[w]); // current average that won
-      await sleep(320); if (tok.c) throw 0;
+      s.showNum(w, numStr(VOTES[w], dNow), COL[w]);          // the winning quotient
+      await sleep(360); if (tok.c) throw 0;
       await s.fly(w, i, COL[w]); if (tok.c) throw 0;
       held[w]++;
-      const div = divisor(held[w]), next = VOTES[w] / div;
-      s.showNum(w, `÷${div}`, COL[w]);                  // the penalty applied to the winner
-      await sleep(300); if (tok.c) throw 0;
-      s.setBar(w, s.h(next, MAXV));
-      s.showNum(w, `${Math.round(next)}`, COL[w]);
-      await sleep(420); if (tok.c) throw 0;
+      const dNext = divisor(held[w]);
+      s.setBar(w, s.h(VOTES[w] / dNext, MAXV));               // penalty: divide by a bigger number
+      s.showNum(w, numStr(VOTES[w], dNext), COL[w]);
+      await sleep(460); if (tok.c) throw 0;
       s.allBars("1"); s.hideNum();
     }
   });
@@ -186,7 +181,7 @@ async function runHare(s: Stage, tok: Tok) {
   const ord = ORDER["largest-remainder"];
   const total = VOTES.reduce((a, b) => a + b, 0), quota = total / SEATS;
   const q = VOTES.map((v) => v / quota), whole = q.map(Math.floor), maxQ = Math.max(...q);
-  s.seatlab.textContent = "8 seats";
+  const rem = VOTES.map((_, i) => q[i] - whole[i]);
   await phase(s, tok, "Votes come in, counted in quotas", async () => {
     s.bars.forEach((_, i) => s.setBar(i, s.h(q[i], maxQ)));
     s.allBars("1"); await sleep(660);
@@ -214,17 +209,30 @@ async function runHare(s: Stage, tok: Tok) {
     }
   });
   await phase(s, tok, "Leftover seats → the biggest remainders", async () => {
-    // the stubs left over are all under one quota; pick the highest, keep it lit, repeat
-    s.allBars(".35");
+    // line up every leftover fraction (1 whole seat = a full bar), all muted
+    s.allBars(".32");
+    for (let i = 0; i < 4; i++) { s.setBar(i, rem[i] * MAXH); s.showNum(i, rem[i].toFixed(2), COL[i], ".5"); }
+    await sleep(1000); if (tok.c) throw 0;
+    // winners: round each UP to one whole seat, highest remainder first
+    const winners = ord.slice(seat);
     for (; seat < SEATS; seat++) {
       if (tok.c) throw 0;
       const w = ord[seat];
-      s.bars[w].style.opacity = "1";
-      s.showNum(w, (q[w] - whole[w]).toFixed(2), COL[w]); // the remainder
-      await sleep(450); if (tok.c) throw 0;
+      s.bars[w].style.opacity = "1"; s.showNum(w, rem[w].toFixed(2), COL[w], "1");
+      await sleep(340); if (tok.c) throw 0;
+      s.setBar(w, MAXH); s.showNum(w, "≈1", COL[w], "1");           // round up to a seat
+      await sleep(460); if (tok.c) throw 0;
       await s.fly(w, seat, COL[w]); if (tok.c) throw 0;
-      s.hideNum();
-      await sleep(120); if (tok.c) throw 0;
+      await sleep(110);
+    }
+    // the rest: round each DOWN to zero, highest unchosen first
+    const chosen = new Set(winners);
+    const losers = [0, 1, 2, 3].filter((i) => !chosen.has(i)).sort((a, b) => rem[b] - rem[a]);
+    for (const i of losers) {
+      if (tok.c) throw 0;
+      s.bars[i].style.opacity = "1"; s.showNum(i, "≈0", COL[i], "1");
+      s.setBar(i, 0);                                               // round down
+      await sleep(580); if (tok.c) throw 0;
     }
   });
   await finale(s, tok, ord);

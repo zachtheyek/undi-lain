@@ -20,7 +20,7 @@ const PR_METHODS: Method[] = ["dhondt", "sainte-lague", "largest-remainder"];
 
 // One-liner (always visible) + the deeper explanation (revealed on the ⓘ card).
 const META: Record<Method | "threshold" | "gallagher", { one: string; tip: string }> = {
-  fptp: { one: "local winner takes all", tip: "Each place picks one champion; parliament is just the sum of local champions." },
+  fptp: { one: "local winner takes all", tip: "Each place picks one champion; parliament is the sum of local champions." },
   dhondt: { one: "rewards the strong", tip: "Its built-in tilt toward big blocs is a feature, used to nudge toward governable majorities." },
   "sainte-lague": { one: "protects the weak", tip: "Its even hand lets small blocs win their fair seat at the table — no thumb on the scale for the big guys." },
   "largest-remainder": { one: "everyone keeps their share", tip: "Seat count = exact share, rounded up or down — never further." },
@@ -238,8 +238,7 @@ function renderResults() {
     return `<div class="trow">
       <div class="nm">${blocLogo(bb)}<span>${esc(b)}</span></div>
       <div class="vshare r">${(bb.votes / e.total_votes * 100).toFixed(1)}%</div>
-      <div class="d r ${cls}">${delta}</div>
-      <div class="ctx r">(${f} → ${p})</div>
+      <div class="seatsgrp"><span class="d r ${cls}">${delta}</span><span class="ctx r">(${f} → ${p})</span></div>
     </div>`;
   }).join("");
 
@@ -260,7 +259,7 @@ function renderResults() {
       </div>
       <div class="rc-stat"><span class="big">${seatsChanged.toFixed(0)}</span> seats change hands vs first-past-the-post</div>
       <div class="table">
-        <div class="trow thead"><div>Bloc</div><div class="r">Vote share</div><div class="r seatschdr">Seats Changed</div></div>
+        <div class="trow thead"><div>Bloc</div><div class="r vshare">Vote %</div><div class="r seatschdr">Seats Changed</div></div>
         ${rows}
       </div>
     </div>

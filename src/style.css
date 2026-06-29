@@ -109,10 +109,13 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 .coalchips .cdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 
 /* bloc table: change is the centrepiece, numbers grouped to the right */
-.table { margin: 6px 0 0; }
-.trow { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 0 16px; padding: 9px 6px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+/* name + vote share cluster left; a flexible gap (col 3) pushes the seats group right.
+   subgrid makes every row share the table's tracks so the columns line up. */
+.table { display: grid; grid-template-columns: auto auto 1fr auto; column-gap: 14px; margin: 6px 0 0; }
+.trow { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .trow.thead { border-top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.seatschdr { grid-column: span 2; }
+.seatsgrp, .seatschdr { grid-column: 4; }
+.seatsgrp { display: flex; align-items: baseline; justify-content: flex-end; gap: 7px; }
 .trow .nm { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
 .r { text-align: right; }
 .logowrap { position: relative; width: 26px; height: 26px; flex: none; display: inline-flex; }
@@ -121,7 +124,7 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 .vshare { font-size: 14px; color: var(--muted); }
 .trow .d { font-size: 18px; font-weight: 700; min-width: 30px; }
 .trow .d.up { color: var(--up); } .trow .d.down { color: var(--down); } .trow .d.flat { color: var(--muted); }
-.trow .ctx { font-size: 12px; color: var(--muted); min-width: 62px; margin-left: -8px; }
+.trow .ctx { font-size: 12px; color: var(--muted); min-width: 62px; }
 
 .sharebar { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 20px; }
 .sharebar button, .sharebar a { padding: 11px 16px; border-radius: 11px; font-weight: 700; font-size: 14px; border: 1px solid var(--line); text-decoration: none; }
