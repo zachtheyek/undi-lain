@@ -1,8 +1,14 @@
 name: Deploy to GitHub Pages
 
+# Builds the site from the live MECo foundation (zachtheyek/meco-data). Runs on every
+# push, AND weekly. On the weekly run it FIRST checks whether the MECo data actually
+# changed since the last deploy — if not, it does nothing. public/data is generated
+# here, not committed. So the site self-updates whenever the data is refreshed.
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "47 20 * * 0"   # Sundays 20:47 UTC, just after meco-data's auto-refresh
   workflow_dispatch:
 
 permissions:
@@ -15,24 +21,72 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # On scheduled runs, skip the whole build unless the MECo foundation moved since the
+  # last deploy (we stamp its commit into dist/data-version.txt). Pushes & manual runs
+  # always build.
+  changed:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.c.outputs.go }}
+      meco_sha: ${{ steps.c.outputs.meco_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: zachtheyek/meco-data
+          path: meco-data
+      - id: c
+        run: |
+          MECO_SHA=$(git -C meco-data rev-parse HEAD)
+          echo "meco_sha=$MECO_SHA" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"; echo "non-schedule run -> build"; exit 0
+          fi
+          LIVE=$(curl -fsS https://zachtheyek.github.io/undi-lain/data-version.txt 2>/dev/null | tr -d '[:space:]' || echo none)
+          if [ "$MECO_SHA" = "$LIVE" ]; then
+            echo "go=false" >> "$GITHUB_OUTPUT"; echo "MECo data unchanged ($MECO_SHA) -> skip"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"; echo "MECo data changed ($LIVE -> $MECO_SHA) -> build"
+          fi
+
   build:
+    needs: changed
+    if: needs.changed.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: undi-lain
+      - uses: actions/checkout@v4
+        with:
+          repository: zachtheyek/meco-data   # the shared data foundation (public)
+          path: meco-data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas pyarrow
+      - name: Generate data from MECo foundation
+        run: python scripts/build_data.py     # reads ../meco-data/out -> writes public/data
+        working-directory: undi-lain
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: undi-lain/package-lock.json
       - run: npm ci
-      - run: npm run build
+        working-directory: undi-lain
+      - run: npm run build                    # vitest + vite + OG card
+        working-directory: undi-lain
         env:
           SITE_URL: https://zachtheyek.github.io/undi-lain
+      - name: Stamp the data version
+        run: echo "${{ needs.changed.outputs.meco_sha }}" > undi-lain/dist/data-version.txt
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: undi-lain/dist
 
   deploy:
-    needs: build
+    needs: [changed, build]
+    if: needs.changed.outputs.go == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

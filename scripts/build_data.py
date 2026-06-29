@@ -21,22 +21,28 @@ party = pd.read_parquet(FOUND / "lookup_party.parquet").set_index("party_uid")["
 
 fed = ballots[ballots.seat.str.startswith("P.") & ballots.election.str.startswith("GE-")].copy()
 fed["won"] = fed.result.isin(["won", "won_uncontested"])
+# Each bloc = its coalition, or its party if the candidate ran unaligned. We also
+# carry the MECo uid + kind so the browser can show the official logo per bloc.
+in_coal = fed.coalition_uid != "000-ALONE"
 fed["bloc"] = fed.apply(lambda r: coal.get(r.coalition_uid) if r.coalition_uid != "000-ALONE" else party.get(r.party_uid, "BEBAS"), axis=1)
+fed["uid"] = fed.coalition_uid.where(in_coal, fed.party_uid)
+fed["kind"] = in_coal.map({True: "coalition", False: "party"})
 
 out = []
 for elec, g in fed.groupby("election"):
     year = int(g.date.str[:4].iloc[0])
     n_seats = g[["state", "seat"]].drop_duplicates().shape[0]
     total_votes = int(g.votes.sum())
-    blocs = (g.groupby("bloc").agg(votes=("votes", "sum"), seats=("won", "sum")).reset_index()
+    blocs = (g.groupby("bloc").agg(votes=("votes", "sum"), seats=("won", "sum"),
+                                   uid=("uid", "first"), kind=("kind", "first")).reset_index()
              .sort_values("votes", ascending=False))
     blocs = blocs[blocs.votes > 0]
     # group tiny blocs (<1.5% and 0 seats) into "Others" to keep it readable
     big = blocs[(blocs.votes / total_votes >= 0.015) | (blocs.seats > 0)]
     small = blocs[~blocs.index.isin(big.index)]
-    rows = [{"bloc": r.bloc, "votes": int(r.votes), "seats": int(r.seats)} for _, r in big.iterrows()]
+    rows = [{"bloc": r.bloc, "votes": int(r.votes), "seats": int(r.seats), "uid": r.uid, "kind": r.kind} for _, r in big.iterrows()]
     if len(small):
-        rows.append({"bloc": "Others", "votes": int(small.votes.sum()), "seats": int(small.seats.sum())})
+        rows.append({"bloc": "Others", "votes": int(small.votes.sum()), "seats": int(small.seats.sum()), "uid": None, "kind": None})
     out.append({"election": elec, "year": year, "n_seats": int(n_seats),
                 "total_votes": total_votes, "blocs": rows})
 
