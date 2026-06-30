@@ -29,11 +29,11 @@ optional electoral threshold, and see exactly how the chamber changes.
 - **Animated explainers for every system.** The biggest barrier here is jargon: most
   readers don't already know what D'Hondt or the Gallagher index *are*. So each system
   plays a short, hover-to-replay animation of how it shares out the same eight seats
-  among the same four blocs — bars growing, seats handed out one by one, the winner's
-  bar cut (Sainte-Laguë cuts deeper than D'Hondt), ending on who forms the government —
-  with a one-line gist (e.g. *"rewards the strong"*) and an ⓘ card for the detail.
-  First-past-the-post is the fixed baseline (it's the actual result), so it isn't a
-  selectable option.
+  among the same four blocs — bars growing, seats handed out one by one, winners
+  penalized per seat (Sainte-Laguë penalizes harder than D'Hondt), ending on who forms
+  the government — with a one-line gist (e.g. *"rewards big players"*) and an ⓘ card for
+  the detail. The selected system keeps playing, and clicking it again de-selects it
+  (leaving just the actual chamber). First-past-the-post is the fixed baseline.
 - **A coalition builder.** When a chamber is hung, tap blocs to assemble a government;
   the selected seats stay lit, the rest mute, and the line flips to "… have a majority"
   once you cross it.
@@ -52,8 +52,8 @@ The allocation methods live in [`src/allocate.ts`](src/allocate.ts) and are
 **unit-tested** ([`src/allocate.test.ts`](src/allocate.test.ts)) against the
 canonical textbook worked examples — `npm test`. The animated per-system explainers
 in [`src/anim.ts`](src/anim.ts) play out the real algorithm on one shared four-bloc
-example (A 120 · B 80 · C 30 · D 20 over 8 seats), so what they show is how the
-method actually distributes seats, not a mock-up.
+example (A 80 · B 120 · C 30 · D 20 over 8 seats), with every division shown exactly
+(votes ÷ divisor), so what they show is how the method actually distributes seats.
 
 ## Credit
 
@@ -78,7 +78,7 @@ npm install
 npm run data    # build_data.py: ../meco-data/out → public/data/elections.json
 npm test        # vitest — allocation methods
 npm run dev
-npm run build   # tests + vite + OG card
+npm run build   # tests + vite + OG cards + prerendered scenario pages
 ```
 
 ## Sibling projects

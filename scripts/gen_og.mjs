@@ -32,8 +32,8 @@ const row = (segs) => `<div style="display:flex;gap:9px;align-items:baseline">${
 function card(s, year) {
   const dColor = s.d > 0 ? "#4ade80" : s.d < 0 ? "#f87171" : MUT;
   const dText = `${s.d > 0 ? "+" : ""}${s.d}`;
-  // ">" chevron drawn with borders (satori has no arrow glyph)
-  const chevron = `<div style="display:flex;width:9px;height:9px;border-top:3px solid ${MUT};border-right:3px solid ${MUT};transform:rotate(45deg);margin:0 13px 0 11px"></div>`;
+  // "→" drawn as a shaft + chevron head (satori has no arrow glyph, and no transparent-border triangle)
+  const arrow = `<div style="display:flex;align-items:center;margin:0 14px 0 12px"><div style="display:flex;width:15px;height:2px;background:${MUT};margin-right:-3px"></div><div style="display:flex;width:9px;height:9px;border-top:2.5px solid ${MUT};border-right:2.5px solid ${MUT};transform:rotate(45deg)"></div></div>`;
   return html(`
   <div style="display:flex;flex-direction:column;width:1200px;height:630px;padding:54px 70px;background:#0d0f14;font-family:'Space Grotesk'">
     <div style="display:flex;align-items:baseline">
@@ -42,7 +42,7 @@ function card(s, year) {
     </div>
     <div style="display:flex;flex-direction:column;margin-top:18px;font-size:29px;line-height:1.45">
       ${row([seg("In", INK), seg(`${year},`, ACC, true), seg(s.top, ACC, true), seg("won", INK), seg(`${Math.round(s.fSeatPct)}%`, ACC, true), seg("of seats on", INK), seg(`${Math.round(s.votePct)}%`, ACC, true), seg("of the vote.", INK)])}
-      ${row([seg("Under", INK), seg(`${s.label},`, ACC, true), seg("they'd hold", INK), seg(`${Math.round(s.pSeatPct)}%`, ACC, true), seg("—", INK), seg(`${dText} seats`, dColor, true)])}
+      ${row([seg("Under", INK), seg(`${s.label},`, ACC, true), seg("they'd hold", INK), seg(`${Math.round(s.pSeatPct)}%`, ACC, true), seg("of seats.", INK)])}
     </div>
     <div style="display:flex;flex-direction:column;margin-top:28px">
       <div style="display:flex;font-size:20px;color:${MUT};margin-bottom:8px">Actual: First-past-the-post</div>
@@ -56,7 +56,7 @@ function card(s, year) {
       <div style="display:flex;color:${MUT}">${s.top}:</div>
       <div style="display:flex;color:${dColor};font-weight:700;margin-left:12px">${dText} seats</div>
       <div style="display:flex;align-items:center;color:${MUT};margin-left:14px">
-        <div style="display:flex">(${s.fS}</div>${chevron}<div style="display:flex">${s.pS})</div>
+        <div style="display:flex">(${s.fS}</div>${arrow}<div style="display:flex">${s.pS})</div>
       </div>
     </div>
     <div style="display:flex;margin-top:auto;font-size:20px;color:#5d6678">Data: Malaysian Election Corpus (Thevesh) · electiondata.my</div>

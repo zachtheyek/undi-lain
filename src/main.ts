@@ -13,7 +13,7 @@ interface BlocRow { bloc: string; votes: number; seats: number; uid: string | nu
 interface Election { election: string; year: number; n_seats: number; total_votes: number; blocs: BlocRow[]; }
 let ELECTIONS: Election[] = [];
 let ei = 0;
-let method: Method = "sainte-lague";
+let method: Method | null = "sainte-lague"; // null = no system chosen (actual chamber only)
 let threshold = 0;
 
 const PR_METHODS: Method[] = ["dhondt", "sainte-lague", "largest-remainder"];
@@ -21,8 +21,8 @@ const PR_METHODS: Method[] = ["dhondt", "sainte-lague", "largest-remainder"];
 // One-liner (always visible) + the deeper explanation (revealed on the ⓘ card).
 const META: Record<Method | "threshold" | "gallagher", { one: string; tip: string }> = {
   fptp: { one: "local winner takes all", tip: "Each place picks one champion; parliament is the sum of local champions." },
-  dhondt: { one: "rewards the strong", tip: "Its built-in tilt toward big blocs is a feature, used to nudge toward governable majorities." },
-  "sainte-lague": { one: "protects the weak", tip: "Its even hand lets small blocs win their fair seat at the table — no thumb on the scale for the big guys." },
+  dhondt: { one: "rewards big players", tip: "Its built-in tilt toward big blocs is a feature, used to nudge toward governable majorities." },
+  "sainte-lague": { one: "protects small players", tip: "Its even hand lets small blocs win their fair seat at the table — no thumb on the scale for the big guys." },
   "largest-remainder": { one: "everyone keeps their share", tip: "Seat count = exact share, rounded up or down — never further." },
   threshold: { one: "", tip: "A minimum vote threshold that locks the smallest parties out before seats are shared, trading tidiness for fairness." },
   gallagher: { one: "scores the mismatch", tip: "Gallagher index — votes-to-seats fairness, hurt most by lopsided losers." },
@@ -157,7 +157,7 @@ function mount() {
   app.innerHTML = `
   <main><div class="wrap">
     <div class="hero"><h1>Undi <em>Lain</em></h1>
-      <p>What if Malaysia counted votes differently? Re-run any general election under proportional representation, and watch the seats move.</p>
+      <p>What if Malaysia counted votes differently? Re-run any general election under proportional representation (PR), and watch the seats move.</p>
     </div>
 
     <div class="controls">
@@ -191,9 +191,10 @@ function mount() {
     }));
   document.getElementById("systems")!.querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
-      method = (b as HTMLElement).dataset.m as Method;
+      const m = (b as HTMLElement).dataset.m as Method;
+      method = method === m ? null : m;          // clicking the selected system de-selects it
       document.querySelectorAll("#systems .syscard").forEach((x) => x.classList.remove("on"));
-      b.classList.add("on");
+      if (method) b.classList.add("on");
       setSelectedAnim(method);
       sync(); renderResults();
     }));
@@ -211,20 +212,37 @@ function mount() {
 
 // ---- the part that changes when you pick an election / system / threshold ----
 function renderResults() {
+  const m = method;
   const e = ELECTIONS[ei];
   const N = e.n_seats;
   const blocs: Bloc[] = e.blocs.map((b) => ({ bloc: b.bloc, votes: b.votes, seats: b.seats } as Bloc & { seats: number }));
   const order = [...e.blocs].sort((a, b) => b.seats - a.seats || b.votes - a.votes).map((b) => b.bloc);
   const fptp = allocate(blocs, N, "fptp");
-  const pr = allocate(blocs, N, method, threshold);
-  const gF = gallagher(blocs, fptp, N);
-  const gP = gallagher(blocs, pr, N);
-  const label = shortName(method);
-
   const top = order[0];
   const tv = e.blocs.find((b) => b.bloc === top)!;
   const votePct = (tv.votes / e.total_votes) * 100;
-  const fS = fptp.get(top) ?? 0, pS = pr.get(top) ?? 0;
+  const fS = fptp.get(top) ?? 0;
+  const resultsEl = document.getElementById("results")!;
+
+  if (m === null) {
+    // de-selected: just the actual chamber + a prompt to pick a system
+    const headline = `In <b>${e.year}</b>, <b>${esc(top)}</b> won <b>${fS}</b> of ${N} seats (${(fS / N * 100).toFixed(0)}%) with <b>${votePct.toFixed(0)}%</b> of the vote.`;
+    resultsEl.innerHTML = `
+      <div class="results">
+        <div class="headline">${headline}</div>
+        <div class="arcs solo">${arcCard("fptp", "Actual: First-past-the-post", fptp, order, N)}</div>
+        <div class="pickprompt">Pick an electoral system above to see how the seats would change.</div>
+      </div>`;
+    setupArc(resultsEl.querySelector<HTMLElement>('[data-arc="fptp"]')!, fptp, order, N);
+    return;
+  }
+
+  const pr = allocate(blocs, N, m, threshold);
+  const gF = gallagher(blocs, fptp, N);
+  const gP = gallagher(blocs, pr, N);
+  const label = shortName(m);
+
+  const pS = pr.get(top) ?? 0;
   const d = pS - fS;
   const headline = `In <b>${e.year}</b>, <b>${esc(top)}</b> won <b>${fS}</b> of ${N} seats (${(fS / N * 100).toFixed(0)}%) with just <b>${votePct.toFixed(0)}%</b> of the vote. Under <b>${esc(label)}</b>, they'd hold <b>${pS}</b> (${(pS / N * 100).toFixed(0)}%) — ${d === 0 ? "no change" : d > 0 ? `<b style="color:#4ade80">+${d}</b> seats` : `<b style="color:#f87171">${d}</b> seats`}.`;
 
@@ -245,7 +263,7 @@ function renderResults() {
   const url = `${location.origin}${scenarioPath()}`;
   const shareText = `${e.year}: ${esc(top)} won ${(fS / N * 100).toFixed(0)}% of seats on ${votePct.toFixed(0)}% of votes under FPTP. Under ${label}, it'd be ${(pS / N * 100).toFixed(0)}%. Re-run any Malaysian election:`;
 
-  document.getElementById("results")!.innerHTML = `
+  resultsEl.innerHTML = `
     <div class="dispro">
       <div class="dp-head">Fairness ${info("gallagher")}</div>
       ${disproSvg(gF, gP, label)}
@@ -269,7 +287,6 @@ function renderResults() {
       <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}" target="_blank" rel="noopener">𝕏 Share</a>
     </div>`;
 
-  const resultsEl = document.getElementById("results")!;
   setupArc(resultsEl.querySelector<HTMLElement>('[data-arc="fptp"]')!, fptp, order, N);
   setupArc(resultsEl.querySelector<HTMLElement>('[data-arc="pr"]')!, pr, order, N);
   document.getElementById("copy")!.onclick = async () => { try { await navigator.clipboard.writeText(url); } catch { /* clipboard unavailable (e.g. unfocused frame) */ } toast("Link copied"); };
@@ -286,6 +303,7 @@ function toast(msg: string) {
 
 // path-based scenario URL: /<repo>/s/<election>/<system>/ (+ ?t= when a threshold is set)
 function scenarioPath() {
+  if (!method) return BASE; // no system chosen
   const base = `${BASE}s/${ELECTIONS[ei].election}/${method}/`;
   return threshold > 0 ? `${base}?t=${threshold.toFixed(1).replace(/\.0$/, "")}` : base;
 }

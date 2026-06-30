@@ -52,9 +52,9 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 @keyframes acpop { 0% { transform: scale(.4); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
 .ig .ablab { font-size: 9px; font-weight: 700; fill: var(--muted); }
 .ig .astat { font-size: 9px; fill: var(--muted); }
-.ig .aseatlab { font-size: 8px; fill: var(--muted); }
-.ig .abnum { font-size: 11px; font-weight: 700; text-anchor: middle; transition: opacity .15s; }
-.ig .apmt { font-size: 8.5px; font-weight: 700; fill: var(--accent); }
+.ig .aseatlab { font-size: 8px; fill: var(--muted); transition: opacity .25s; }
+.ig .abnum { font-size: 11px; font-weight: 700; text-anchor: middle; transition: transform .45s ease, opacity .15s; }
+.ig .apmt { font-size: 9px; font-weight: 700; fill: #eef1f6; }
 .syscard:hover .ig-wrap, button.syscard:focus-visible .ig-wrap { box-shadow: inset 0 0 0 1px var(--line); }
 
 .thresh { display: flex; align-items: center; gap: 12px; }
@@ -90,6 +90,8 @@ button.syscard:hover:not(.on) { border-color: var(--accent); }
 
 .arcs { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 680px) { .arcs { grid-template-columns: 1fr 1fr; } }
+.arcs.solo { grid-template-columns: minmax(0, 400px); justify-content: center; }
+.pickprompt { text-align: center; color: var(--muted); font-size: 14px; margin: 16px 0 2px; }
 .arc { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 12px 12px; text-align: center; }
 .arc h3 { font-size: 14px; color: var(--ink); font-weight: 600; }
 .arc svg { width: 100%; height: auto; display: block; margin: 4px 0; }

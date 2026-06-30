@@ -2,7 +2,7 @@
 // Each card shares the same stage — four party bars (blue/orange/red/green) and eight
 // blank seat-circles — and plays a short, looping video of how that system fills the
 // chamber. Default state is the FIRST frame (paused). On desktop, hovering a card plays
-// it on a loop and leaving resets; on touch, the card nearest the screen centre plays.
+// it on a loop and leaving resets; on touch, the card the screen centre sits over plays.
 // The SELECTED system also keeps playing, so at most two run at once. Reduced motion
 // stays on the first frame.
 //
@@ -40,7 +40,7 @@ function svgSkeleton(): string {
   const bars = BX.map((x, i) => `<rect class="ab" data-i="${i}" x="${x}" y="${BY - MAXH}" width="${BW}" height="${MAXH}" rx="2" fill="${COL[i]}" style="transform:scaleY(0)"/>`).join("");
   const blabels = BX.map((x, i) => `<text class="ablab" x="${x + BW / 2}" y="124" text-anchor="middle">${KEY[i]}</text>`).join("");
   const circles = ORDER.fptp.map((_, i) => `<circle class="ac" data-i="${i}" cx="${cx(i)}" cy="${cy(i)}" r="${CR}" fill="none" stroke="#3a4254" stroke-width="1.6"/>`).join("");
-  const nums = BX.map((x, i) => `<text class="abnum" data-i="${i}" x="${x + BW / 2}" opacity="0"></text>`).join("");
+  const nums = BX.map((_, i) => `<text class="abnum" data-i="${i}" x="0" text-anchor="middle" opacity="0"></text>`).join("");
   return `<svg viewBox="0 0 240 150" class="ig" role="img" aria-label="how seats are allocated">
     <text class="astat" text-anchor="middle"><tspan class="l1" x="120" y="9"></tspan><tspan class="l2" x="120" y="19.5"></tspan></text>
     <text class="aseatlab" x="180" y="36" text-anchor="middle">8 seats</text>
@@ -69,10 +69,20 @@ function makeStage(wrap: HTMLElement) {
   const focusBar = (i: number) => bars.forEach((b, j) => (b.style.opacity = j === i ? "1" : ".28"));
   const allBars = (o: string) => bars.forEach((b) => (b.style.opacity = o));
   const fillCircle = (i: number, c: string) => { circles[i].setAttribute("fill", c); circles[i].setAttribute("stroke", c); };
-  const blankCircle = (i: number) => { const c = circles[i]; c.setAttribute("fill", "none"); c.setAttribute("stroke", "#3a4254"); c.style.opacity = "1"; c.style.transform = ""; };
+  const blankCircle = (i: number) => { const c = circles[i]; c.setAttribute("fill", "none"); c.setAttribute("stroke", "#3a4254"); c.style.opacity = "1"; c.style.transition = ""; c.style.transform = ""; };
   const status = (s: string) => { const [a, b = ""] = s.split("\n"); l1.textContent = a; l2.textContent = b; };
-  const showNum = (i: number, text: string, color: string, op = "1") => { nums[i].setAttribute("x", `${BX[i] + BW / 2}`); nums[i].setAttribute("y", `${BY - barH[i] - 7}`); nums[i].setAttribute("fill", color); nums[i].textContent = text; nums[i].setAttribute("opacity", op); };
+  // numbers are positioned by transform so they slide down WITH the bar; a fresh show snaps
+  const showNum = (i: number, text: string, color: string, op = "1") => {
+    const n = nums[i];
+    const fresh = n.getAttribute("opacity") === "0";
+    n.textContent = text; n.setAttribute("fill", color);
+    const tx = `translate(${BX[i] + BW / 2}px, ${BY - barH[i] - 7}px)`;
+    if (fresh) { n.style.transition = "none"; n.style.transform = tx; void n.getBoundingClientRect(); n.style.transition = ""; }
+    else n.style.transform = tx;
+    n.setAttribute("opacity", op);
+  };
   const hideNum = (i?: number) => (i == null ? nums.forEach((n) => n.setAttribute("opacity", "0")) : nums[i].setAttribute("opacity", "0"));
+  const seatLab = (on: boolean) => seatlab.setAttribute("opacity", on ? "1" : "0");
 
   async function fly(barI: number, seatI: number, c: string, dur = 360) {
     const fromX = BX[barI] + BW / 2, fromY = BY - barH[barI];
@@ -90,15 +100,22 @@ function makeStage(wrap: HTMLElement) {
     setTimeout(() => circles[seatI].classList.remove("pop"), 320);
   }
 
+  function showPM(seat: number) {
+    pmt.setAttribute("x", `${cx(seat)}`); pmt.setAttribute("y", `${cy(seat) - 26}`);
+    circles[seat].style.transition = "transform .4s ease";
+    circles[seat].style.transform = "translateY(-11px)";
+    pm.style.transition = "opacity .3s"; pm.style.opacity = "1";
+  }
+
   function firstFrame() {
     bars.forEach((_, i) => setBar(i, 0));
     allBars("1");
     circles.forEach((_, i) => blankCircle(i));
     pm.style.transition = "none"; pm.style.opacity = "0";
-    hideNum(); status(""); seatlab.textContent = "8 seats";
+    hideNum(); status(""); seatLab(true);
   }
 
-  return { svg, bars, circles, h, setBar, focusBar, allBars, fillCircle, blankCircle, status, seatlab, showNum, hideNum, fly, pm, pmt, firstFrame, cx, cy };
+  return { svg, bars, circles, h, setBar, focusBar, allBars, fillCircle, blankCircle, status, seatLab, showNum, hideNum, fly, showPM, firstFrame, cx, cy };
 }
 type Stage = ReturnType<typeof makeStage>;
 
@@ -116,15 +133,11 @@ async function phase(s: Stage, tok: Tok, title: string, work: () => Promise<void
 
 async function finale(s: Stage, tok: Tok, ord: number[]) {
   await phase(s, tok, `${KEY[WIN]} wins the most seats\n→ forms the government`, async () => {
-    s.hideNum();
+    s.hideNum(); s.seatLab(false);                 // hide "8 seats" so the PM label has room
     s.circles.forEach((c, i) => (c.style.opacity = ord[i] === WIN ? "1" : ".28"));
     s.allBars(".2");
     await sleep(650); if (tok.c) throw 0;
-    const seat = ord.indexOf(WIN);
-    s.pmt.setAttribute("x", `${s.cx(seat)}`); s.pmt.setAttribute("y", `${s.cy(seat) - CR - 5}`);
-    s.circles[seat].style.transition = "transform .4s ease";
-    s.circles[seat].style.transform = "translateY(-9px)";
-    s.pm.style.transition = "opacity .3s"; s.pm.style.opacity = "1";
+    s.showPM(ord.indexOf(WIN));
     await sleep(720);
   });
 }
@@ -143,15 +156,15 @@ async function runFPTP(s: Stage, tok: Tok) {
       await sleep(280); if (tok.c) throw 0;
       await s.fly(w, i, COL[w]); if (tok.c) throw 0;
       await sleep(70);
-      s.bars.forEach((_, p) => s.setBar(p, 0));
+      if (i < SEATS - 1) s.bars.forEach((_, p) => s.setBar(p, 0)); // keep the last chart up
     }
   });
   await finale(s, tok, ord);
 }
 
 // highest-averages: each seat to the biggest quotient (votes ÷ divisor); winning bumps a
-// party's divisor (D'Hondt +1 → "a bit", Sainte-Laguë +2 → "a lot"). Every shown value is
-// exactly votes ÷ divisor, so the arithmetic is sound.
+// party's divisor (D'Hondt +1 → "a bit", Sainte-Laguë +2 → "a lot"). The penalty is shown in
+// two beats — first the number divides where it is, then the bar (and number) drop together.
 async function runHA(s: Stage, tok: Tok, divisor: (held: number) => number, ord: number[], penalty: string) {
   await phase(s, tok, "Votes come in", async () => {
     s.bars.forEach((_, i) => s.setBar(i, s.h(VOTES[i], MAXV)));
@@ -161,17 +174,19 @@ async function runHA(s: Stage, tok: Tok, divisor: (held: number) => number, ord:
   await phase(s, tok, `Each seat → the winner\nwinners get penalized (${penalty}) per seat`, async () => {
     for (let i = 0; i < SEATS; i++) {
       if (tok.c) throw 0;
-      const w = ord[i], dNow = divisor(held[w]);
+      const w = ord[i];
       s.focusBar(w);
-      s.showNum(w, numStr(VOTES[w], dNow), COL[w]);          // the winning quotient
+      s.showNum(w, numStr(VOTES[w], divisor(held[w])), COL[w]);   // the winning quotient
       await sleep(360); if (tok.c) throw 0;
       await s.fly(w, i, COL[w]); if (tok.c) throw 0;
       held[w]++;
       const dNext = divisor(held[w]);
-      s.setBar(w, s.h(VOTES[w] / dNext, MAXV));               // penalty: divide by a bigger number
+      s.showNum(w, numStr(VOTES[w], dNext), COL[w]);              // 1: divide in place, bar stays
+      await sleep(350); if (tok.c) throw 0;
+      s.setBar(w, s.h(VOTES[w] / dNext, MAXV));                    // 2: bar (and number) drop together
       s.showNum(w, numStr(VOTES[w], dNext), COL[w]);
-      await sleep(460); if (tok.c) throw 0;
-      s.allBars("1"); s.hideNum();
+      await sleep(470); if (tok.c) throw 0;
+      s.hideNum(w);                                                // keep bars muted into the finale (no flicker)
     }
   });
   await finale(s, tok, ord);
@@ -209,18 +224,18 @@ async function runHare(s: Stage, tok: Tok) {
     }
   });
   await phase(s, tok, "Leftover seats → the biggest remainders", async () => {
-    // line up every leftover fraction (1 whole seat = a full bar), all muted
+    // leave the bars on the same scale; just label each leftover fraction, muted
     s.allBars(".32");
-    for (let i = 0; i < 4; i++) { s.setBar(i, rem[i] * MAXH); s.showNum(i, rem[i].toFixed(2), COL[i], ".5"); }
+    for (let i = 0; i < 4; i++) s.showNum(i, rem[i].toFixed(2), COL[i], ".5");
     await sleep(1000); if (tok.c) throw 0;
-    // winners: round each UP to one whole seat, highest remainder first
+    // winners: round each UP to where one whole quota would sit, highest remainder first
     const winners = ord.slice(seat);
     for (; seat < SEATS; seat++) {
       if (tok.c) throw 0;
       const w = ord[seat];
       s.bars[w].style.opacity = "1"; s.showNum(w, rem[w].toFixed(2), COL[w], "1");
       await sleep(340); if (tok.c) throw 0;
-      s.setBar(w, MAXH); s.showNum(w, "≈1", COL[w], "1");           // round up to a seat
+      s.setBar(w, s.h(1, maxQ)); s.showNum(w, "≈1", COL[w], "1");
       await sleep(460); if (tok.c) throw 0;
       await s.fly(w, seat, COL[w]); if (tok.c) throw 0;
       await sleep(110);
@@ -231,7 +246,7 @@ async function runHare(s: Stage, tok: Tok) {
     for (const i of losers) {
       if (tok.c) throw 0;
       s.bars[i].style.opacity = "1"; s.showNum(i, "≈0", COL[i], "1");
-      s.setBar(i, 0);                                               // round down
+      s.setBar(i, 0);
       await sleep(580); if (tok.c) throw 0;
     }
   });
@@ -246,8 +261,7 @@ function runOne(s: Stage, method: Method, tok: Tok): Promise<void> {
 }
 
 // A card plays when it's the SELECTED system (pinned, keeps looping), when it's hovered
-// (desktop), or when it's nearest the screen centre (touch). Pinned + one of the others = at
-// most two running at a time.
+// (desktop), or when the screen centre sits over it (touch). At most two run at once.
 type Ctl = { method: Method; wrap: HTMLElement; hovering: boolean; start: () => void; stop: () => void };
 const REG: Ctl[] = [];
 let pinned: Method | null = null;
@@ -258,14 +272,14 @@ const TOUCH = !window.matchMedia?.("(hover: hover)").matches;
 function refresh() {
   REG.forEach((c) => ((c.method === pinned || c.hovering || (TOUCH && c.wrap === centered)) ? c.start() : c.stop()));
 }
-export function setSelectedAnim(method: Method) { pinned = method; refresh(); }
+export function setSelectedAnim(method: Method | null) { pinned = method; refresh(); }
 
 function coordinate() {
   const mid = window.innerHeight / 2;
   let best: HTMLElement | null = null, bd = Infinity;
   REG.forEach((c) => {
     const r = c.wrap.getBoundingClientRect();
-    if (r.bottom < 40 || r.top > window.innerHeight - 40) return;
+    if (r.top > mid || r.bottom < mid) return;   // only a card the centre line crosses
     const d = Math.abs(r.top + r.height / 2 - mid);
     if (d < bd) { bd = d; best = c.wrap; }
   });
