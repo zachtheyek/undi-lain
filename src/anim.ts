@@ -28,7 +28,7 @@ const ORDER: Record<Method, number[]> = {
 
 // geometry (viewBox 240 × 150)
 const BY = 112, MAXH = 66, BX = [14, 36, 58, 80], BW = 16;
-const CX = [138, 167, 196, 223], CY = [58, 92], CR = 11;
+const CX = [137, 166, 195, 224], CY = [58, 92], CR = 11; // evenly spaced (gap 29), centred at 180.5
 const cx = (i: number) => CX[i % 4], cy = (i: number) => CY[i < 4 ? 0 : 1];
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const numStr = (v: number, d: number) => (d === 1 ? `${v}` : `${v}÷${d}`); // exact, never ÷1
@@ -43,7 +43,7 @@ function svgSkeleton(): string {
   const nums = BX.map((_, i) => `<text class="abnum" data-i="${i}" x="0" text-anchor="middle" opacity="0"></text>`).join("");
   return `<svg viewBox="0 0 240 150" class="ig" role="img" aria-label="how seats are allocated">
     <text class="astat" text-anchor="middle"><tspan class="l1" x="120" y="9"></tspan><tspan class="l2" x="120" y="19.5"></tspan></text>
-    <text class="aseatlab" x="180" y="36" text-anchor="middle">seats</text>
+    <text class="aseatlab" x="180.5" y="36" text-anchor="middle">seats</text>
     ${bars}${blabels}${circles}${nums}
     <g class="apm" opacity="0"><text class="apmt" x="0" y="0" text-anchor="middle">PM</text></g>
     <g class="adot" opacity="0"><circle r="5.5"/></g>
@@ -101,7 +101,7 @@ function makeStage(wrap: HTMLElement) {
   }
 
   function showPM(seat: number) {
-    pmt.setAttribute("x", `${cx(seat)}`); pmt.setAttribute("y", `${cy(seat) - 26}`);
+    pmt.setAttribute("x", `${cx(seat)}`); pmt.setAttribute("y", `${cy(seat) - 11}`); // centred inside the pulled circle
     circles[seat].style.transition = "transform .4s ease";
     circles[seat].style.transform = "translateY(-11px)";
     pm.style.transition = "opacity .3s"; pm.style.opacity = "1";
@@ -132,7 +132,7 @@ function makeStage(wrap: HTMLElement) {
     const ord = ORDER[method], seat = ord.indexOf(WIN);
     circles.forEach((c, i) => { fillCircle(i, COL[ord[i]]); c.style.opacity = "1"; c.style.transition = "none"; c.style.transform = ""; });
     pm.style.transition = "none";
-    pmt.setAttribute("x", `${cx(seat)}`); pmt.setAttribute("y", `${cy(seat) - 26}`);
+    pmt.setAttribute("x", `${cx(seat)}`); pmt.setAttribute("y", `${cy(seat) - 11}`); // centred inside the pulled circle
     circles[seat].style.transform = "translateY(-11px)";
     pm.style.opacity = "1";
   }
