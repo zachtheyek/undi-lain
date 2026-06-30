@@ -43,7 +43,7 @@ function svgSkeleton(): string {
   const nums = BX.map((_, i) => `<text class="abnum" data-i="${i}" x="0" text-anchor="middle" opacity="0"></text>`).join("");
   return `<svg viewBox="0 0 240 150" class="ig" role="img" aria-label="how seats are allocated">
     <text class="astat" text-anchor="middle"><tspan class="l1" x="120" y="9"></tspan><tspan class="l2" x="120" y="19.5"></tspan></text>
-    <text class="aseatlab" x="180" y="36" text-anchor="middle">8 seats</text>
+    <text class="aseatlab" x="180" y="36" text-anchor="middle">seats</text>
     ${bars}${blabels}${circles}${nums}
     <g class="apm" opacity="0"><text class="apmt" x="0" y="0" text-anchor="middle">PM</text></g>
     <g class="adot" opacity="0"><circle r="5.5"/></g>
@@ -115,7 +115,29 @@ function makeStage(wrap: HTMLElement) {
     hideNum(); status(""); seatLab(true);
   }
 
-  return { svg, bars, circles, h, setBar, focusBar, allBars, fillCircle, blankCircle, status, seatLab, showNum, hideNum, fly, showPM, firstFrame, cx, cy };
+  // resting "thumbnail": no caption, the initial votes on the bars, and the final seat
+  // arrangement (with the PM picked) on the circles — "this vote split led to these seats".
+  function thumbnail(method: Method) {
+    status(""); seatLab(false); hideNum();
+    if (method === "fptp") {
+      const w = ORDER.fptp[0], losers = [0.52, 0.4, 0.28]; let li = 0;
+      bars.forEach((_, p) => setBar(p, h(p === w ? 0.86 : losers[(li++) % 3], 1))); // first local contest
+    } else if (method === "largest-remainder") {
+      const quota = VOTES.reduce((a, b) => a + b, 0) / SEATS, q = VOTES.map((v) => v / quota), maxQ = Math.max(...q);
+      bars.forEach((_, i) => setBar(i, h(q[i], maxQ)));
+    } else {
+      bars.forEach((_, i) => setBar(i, h(VOTES[i], MAXV)));
+    }
+    allBars("1");
+    const ord = ORDER[method], seat = ord.indexOf(WIN);
+    circles.forEach((c, i) => { fillCircle(i, COL[ord[i]]); c.style.opacity = "1"; c.style.transition = "none"; c.style.transform = ""; });
+    pm.style.transition = "none";
+    pmt.setAttribute("x", `${cx(seat)}`); pmt.setAttribute("y", `${cy(seat) - 26}`);
+    circles[seat].style.transform = "translateY(-11px)";
+    pm.style.opacity = "1";
+  }
+
+  return { svg, bars, circles, h, setBar, focusBar, allBars, fillCircle, blankCircle, status, seatLab, showNum, hideNum, fly, showPM, firstFrame, thumbnail, cx, cy };
 }
 type Stage = ReturnType<typeof makeStage>;
 
@@ -197,12 +219,12 @@ async function runHare(s: Stage, tok: Tok) {
   const total = VOTES.reduce((a, b) => a + b, 0), quota = total / SEATS;
   const q = VOTES.map((v) => v / quota), whole = q.map(Math.floor), maxQ = Math.max(...q);
   const rem = VOTES.map((_, i) => q[i] - whole[i]);
-  await phase(s, tok, "Votes come in, counted in quotas", async () => {
+  await phase(s, tok, "Votes come in, counted in integers", async () => {
     s.bars.forEach((_, i) => s.setBar(i, s.h(q[i], maxQ)));
     s.allBars("1"); await sleep(660);
   });
   let seat = 0;
-  await phase(s, tok, "Each whole quota becomes a seat", async () => {
+  await phase(s, tok, "Each whole integer becomes a seat", async () => {
     for (let p = 0; p < 4; p++) {
       if (whole[p] === 0) continue;
       if (tok.c) throw 0;
@@ -246,8 +268,9 @@ async function runHare(s: Stage, tok: Tok) {
     for (const i of losers) {
       if (tok.c) throw 0;
       s.bars[i].style.opacity = "1"; s.showNum(i, "≈0", COL[i], "1");
-      s.setBar(i, 0);
-      await sleep(580); if (tok.c) throw 0;
+      await sleep(200); if (tok.c) throw 0;
+      s.setBar(i, 0); s.showNum(i, "≈0", COL[i], "1");   // the number follows the bar down to 0
+      await sleep(560); if (tok.c) throw 0;
     }
   });
   await finale(s, tok, ord);
@@ -299,7 +322,7 @@ function wireCoordinator() {
 export function setupAnim(wrap: HTMLElement, method: Method) {
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const s = makeStage(wrap);
-  s.firstFrame();
+  s.thumbnail(method);
   if (reduce) return;
 
   let tok: Tok | null = null;
@@ -316,7 +339,7 @@ export function setupAnim(wrap: HTMLElement, method: Method) {
       } catch { /* cancelled */ }
       if (tok === my) tok = null;
       running = false;
-      s.firstFrame();
+      s.thumbnail(method);
     })();
   };
   const stop = () => { if (tok) tok.c = true; };
