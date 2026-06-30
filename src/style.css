@@ -35,7 +35,7 @@ a { color: var(--accent); } button, select { font: inherit; cursor: pointer; bor
 @media (min-width: 620px) { .systems { grid-template-columns: 1fr 1fr; } }
 .syscard { display: flex; flex-direction: column; gap: 5px; text-align: left; padding: 11px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel2); color: var(--ink); }
 button.syscard { transition: border-color .15s, background .15s; }
-button.syscard:hover:not(.on) { border-color: var(--accent); }
+button.syscard:hover:not(.on) { border-color: #586077; }   /* neutral hover — accent border means selected */
 .syscard.on { border-color: var(--accent); background: rgba(255, 207, 77, .07); }
 .syscard.baseline { background: var(--panel); border-style: dashed; }
 .ig-wrap { background: rgba(0, 0, 0, .22); border-radius: 9px; padding: 8px 8px 6px; }
