@@ -13,7 +13,7 @@ interface BlocRow { bloc: string; votes: number; seats: number; uid: string | nu
 interface Election { election: string; year: number; n_seats: number; total_votes: number; blocs: BlocRow[]; }
 let ELECTIONS: Election[] = [];
 let ei = 0;
-let method: Method | null = "sainte-lague"; // null = no system chosen (actual chamber only)
+let method: Method | null = null; // start unselected (actual chamber only); a scenario URL selects one
 let threshold = 0;
 
 const PR_METHODS: Method[] = ["dhondt", "sainte-lague", "largest-remainder"];
